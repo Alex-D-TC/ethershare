@@ -28,6 +28,3 @@ reated by https://www.gitignore.io/api/go,visualstudiocode
 
 # End of https://www.gitignore.io/api/go,visualstudiocode
 
-# Generated GO bindings
-eth/build-go/*
-
