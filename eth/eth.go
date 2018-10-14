@@ -3,6 +3,7 @@ package eth
 import (
 	"context"
 	"crypto/ecdsa"
+	"fmt"
 	"log"
 	"math/big"
 	"sync"
@@ -47,11 +48,17 @@ func (client *ThreadsafeClient) SubmitTransaction(tran func(*ethclient.Client) (
 
 		err, retry, tran := tran(client.ethClient)
 
-		// Short enough deadline that no context leak should happen
-		// No need for the cancel func for now
-		ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+		if err == nil {
+			// Short enough deadline that no context leak should happen
+			// No need for the cancel func for now
+			ctx, _ := context.WithTimeout(context.Background(), 5*60*time.Second)
 
-		bind.WaitMined(ctx, client.ethClient, tran)
+			fmt.Println(fmt.Sprintf("Waiting for transaction %s to be mined", tran.Hash().Hex()))
+
+			bind.WaitMined(ctx, client.ethClient, tran)
+
+			fmt.Println("Transaction mined or timer expired")
+		}
 
 		client.Unlock()
 

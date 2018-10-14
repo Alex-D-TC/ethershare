@@ -9,6 +9,7 @@ contract FileShareContract {
         uint price;
     }
 
+    mapping(address => uint) public sharesCount;
     mapping(address => Share[]) public shares;
 
     Token public token;
@@ -24,7 +25,7 @@ contract FileShareContract {
             price: _price
         });
         
-        shares[msg.sender].push(share);
+        sharesCount[msg.sender] = shares[msg.sender].push(share);
     }
 
     function acceptPossible(address _recipient, uint _shareID) public view returns (bool) {
