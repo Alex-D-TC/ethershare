@@ -70,24 +70,20 @@ type File struct {
 	Price *big.Int
 }
 
-func listFiles(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address) []File {
+func listFiles(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address) ([]File, error) {
 	results := []File{}
 
-	done := make(chan bool)
-
-	client.SubmitReadTransaction(func(client *ethclient.Client) (err error, retry bool) {
+	err, done := client.SubmitReadTransactionWait(func(client *ethclient.Client) (err error, retry bool) {
 		err = nil
 		retry = false
 
 		fileshareContract, err := ethBind.NewFileShareContract(fileshareContractAddr, client)
 		if err != nil {
-			done <- true
 			return
 		}
 
 		count, err := fileshareContract.SharesCount(nil, sharer)
 		if err != nil {
-			done <- true
 			return
 		}
 
@@ -97,7 +93,6 @@ func listFiles(client *eth.ThreadsafeClient, fileshareContractAddr common.Addres
 			// Just stop prematurely for now
 			// TODO: Maybe just skip it in future versions?
 			if err != nil {
-				done <- true
 				return err, false
 			}
 
@@ -107,14 +102,17 @@ func listFiles(client *eth.ThreadsafeClient, fileshareContractAddr common.Addres
 			})
 		}
 
-		done <- true
 		return
 	})
+
+	if err != nil {
+		return nil, err
+	}
 
 	// Wait for the transaction to be done
 	<-done
 
-	return results
+	return results, nil
 }
 
 func main() {
@@ -136,18 +134,14 @@ func main() {
 	tokenAddr := common.HexToAddress("0xbD20ED28Cb9C0bbeb19Ff9709489B591f97250D9")
 	_ = common.HexToAddress("0xd5967339f0A2Cb2E151A42AFF73e7cc7B7d631B1")
 
-	done := make(chan bool)
-
-	client.SubmitReadTransaction(func(client *ethclient.Client) (error, bool) {
+	err, done := client.SubmitReadTransactionWait(func(client *ethclient.Client) (error, bool) {
 		token, err := ethBind.NewTokenImpl(tokenAddr, client)
 		if err != nil {
-			done <- true
 			return err, false
 		}
 
 		total, err := token.MaxSupply(nil)
 		if err != nil {
-			done <- true
 			return err, false
 		}
 
@@ -155,15 +149,17 @@ func main() {
 
 		owner, err := token.Owner(nil)
 		if err != nil {
-			done <- true
 			return err, false
 		}
 
 		fmt.Println(owner.Hex())
 
-		done <- true
 		return nil, false
 	})
+
+	if err != nil {
+		panic(err)
+	}
 
 	<-done
 }

@@ -68,6 +68,23 @@ func (client *ThreadsafeClient) SubmitTransaction(tran func(*ethclient.Client) (
 	})
 }
 
+func (client *ThreadsafeClient) SubmitReadTransactionWait(tran func(*ethclient.Client) (error, bool)) (error, <-chan bool) {
+	done := make(chan bool)
+
+	err := client.SubmitReadTransaction(func(client *ethclient.Client) (error, bool) {
+
+		err, retry := tran(client)
+
+		if !retry {
+			done <- true
+		}
+
+		return err, retry
+	})
+
+	return err, done
+}
+
 func (client *ThreadsafeClient) SubmitReadTransaction(tran func(*ethclient.Client) (error, bool)) error {
 	return client.queue.Submit(func() (error, bool) {
 
