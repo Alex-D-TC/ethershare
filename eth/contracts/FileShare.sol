@@ -13,11 +13,11 @@ contract FileShareContract {
 
     Token public token;
 
-    constructor(Token _token) {
+    constructor(Token _token) public {
         token = _token;
     }
 
-    function publishFile(string _fileHash, uint _price) public {
+    function publishFile(string memory _fileHash, uint _price) public {
         
         Share memory share = Share({
             fileHash: _fileHash,

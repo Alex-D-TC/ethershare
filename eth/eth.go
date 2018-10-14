@@ -11,6 +11,7 @@ import (
 	"github.com/alex-d-tc/bchain-routing/concurrent"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
@@ -18,28 +19,62 @@ import (
 type ThreadsafeClient struct {
 	sync.RWMutex
 
-	client *ethclient.Client
-	queue  *concurrent.TransactionQueue
+	ethClient            *ethclient.Client
+	queue                *concurrent.TransactionQueue
+	transactionWaitBlock chan bool
 }
 
 func MakeThreadsafeClient(client *ethclient.Client) *ThreadsafeClient {
 	result := ThreadsafeClient{
-		client: client,
-		queue:  concurrent.MakeTransactionQueue(),
+		ethClient:            client,
+		queue:                concurrent.MakeTransactionQueue(),
+		transactionWaitBlock: make(chan bool, 1),
 	}
+
+	// Init chan with something, to not lock the first transaction
+	result.transactionWaitBlock <- true
 
 	return &result
 }
 
-func (client *ThreadsafeClient) SubmitTransaction(tran func(*ethclient.Client) (error, bool)) error {
+func (client *ThreadsafeClient) SubmitTransaction(tran func(*ethclient.Client) (error, bool, *types.Transaction)) error {
 	return client.queue.Submit(func() (error, bool) {
+
+		// Wait for pending transaction to be mined
+		<-client.transactionWaitBlock
+
 		client.Lock()
 
-		err, cont := tran(client.client)
+		err, retry, tran := tran(client.ethClient)
+
+		// Short enough deadline that no context leak should happen
+		// No need for the cancel func for now
+		ctx, _ := context.WithTimeout(context.Background(), 60*time.Second)
+
+		bind.WaitMined(ctx, client.ethClient, tran)
 
 		client.Unlock()
+
+		// Notify that the next transaction can begin
+		client.transactionWaitBlock <- true
+		return err, retry
+	})
+}
+
+func (client *ThreadsafeClient) SubmitReadTransaction(tran func(*ethclient.Client) (error, bool)) error {
+	return client.queue.Submit(func() (error, bool) {
+
+		client.RLock()
+
+		err, cont := tran(client.ethClient)
+
+		client.RUnlock()
 		return err, cont
 	})
+}
+
+func (client *ThreadsafeClient) Close() {
+	client.ethClient.Close()
 }
 
 func (client *ThreadsafeClient) Dispose() {
@@ -103,7 +138,7 @@ func EventWatcher(ctx context.Context, logger *log.Logger, client *ThreadsafeCli
 
 		client.RLock()
 
-		header, err := client.client.BlockByNumber(ctx, nil)
+		header, err := client.ethClient.BlockByNumber(ctx, nil)
 		if err != nil {
 			logger.Println(err)
 			// Retry on error
