@@ -6,6 +6,7 @@ contract FileShareContract {
 
     struct Share {
         string fileHash;
+        string description;
         uint price;
     }
 
@@ -18,11 +19,12 @@ contract FileShareContract {
         token = _token;
     }
 
-    function publishFile(string memory _fileHash, uint _price) public {
+    function publishFile(string memory _fileHash, uint _price, string memory _description) public {
         
         Share memory share = Share({
             fileHash: _fileHash,
-            price: _price
+            price: _price,
+            description: _description
         });
         
         sharesCount[msg.sender] = shares[msg.sender].push(share);
