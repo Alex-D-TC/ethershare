@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alex-d-tc/bchain-routing/concurrent"
+	"github.com/alex-d-tc/ethershare/concurrent"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"

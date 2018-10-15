@@ -15,12 +15,19 @@ import (
 )
 
 func serverExample(client *eth.ThreadsafeClient, fileshareAddr common.Address) {
+
 	r := gin.Default()
+
 	r.GET("/echo", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"message": "echo!",
 		})
 	})
+
+	r.POST("/:sharer/files", func(c *gin.Context) {
+
+	})
+
 	r.GET("/:sharer/files", func(c *gin.Context) {
 		sharerHex := c.Param("sharer")
 		sharerAddress := common.HexToAddress(sharerHex)
@@ -36,7 +43,6 @@ func serverExample(client *eth.ThreadsafeClient, fileshareAddr common.Address) {
 				"files": files,
 			})
 		}
-
 	})
 
 	err := r.Run(":8080")
