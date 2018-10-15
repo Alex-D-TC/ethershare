@@ -50,6 +50,41 @@ func PublishFile(key *ecdsa.PrivateKey, client *eth.ThreadsafeClient, fileshareC
 	return nil
 }
 
+func GetFile(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address, fileID *big.Int) (File, error) {
+
+	result := File{}
+
+	err, done := client.SubmitReadTransactionWait(func(client *ethclient.Client) (err error, retry bool) {
+
+		err = nil
+		retry = false
+
+		fileshareContract, err := ethBind.NewFileShareContract(fileshareContractAddr, client)
+		if err != nil {
+			return
+		}
+
+		fileStruct, err := fileshareContract.Shares(nil, sharer, fileID)
+		if err != nil {
+			return
+		}
+
+		result = File{
+			Hash:  fileStruct.FileHash,
+			Price: fileStruct.Price,
+		}
+
+		return
+	})
+
+	if err != nil {
+		return File{}, err
+	}
+
+	<-done
+	return result, nil
+}
+
 func ListFiles(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address) ([]File, error) {
 	results := []File{}
 

@@ -25,65 +25,14 @@ func serverExample(client *eth.ThreadsafeClient, fileshareAddr common.Address) {
 	})
 
 	r.POST("/:sharer/files", func(c *gin.Context) {
-
 	})
 
 	r.GET("/:sharer/files", func(c *gin.Context) {
 		sharerHex := c.Param("sharer")
 		sharerAddress := common.HexToAddress(sharerHex)
 
-<<<<<<< HEAD
-type File struct {
-	Hash  string
-	Price *big.Int
-}
-
-func getFile(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address, fileID *big.Int) (File, error) {
-
-	result := File{}
-
-	err, done := client.SubmitReadTransactionWait(func(client *ethclient.Client) (err error, retry bool) {
-
-		err = nil
-		retry = false
-
-		fileshareContract, err := ethBind.NewFileShareContract(fileshareContractAddr, client)
-		if err != nil {
-			return
-		}
-
-		fileStruct, err := fileshareContract.Shares(nil, sharer, fileID)
-		if err != nil {
-			return
-		}
-
-		result = File{
-			Hash:  fileStruct.FileHash,
-			Price: fileStruct.Price,
-		}
-
-		return
-	})
-
-	if err != nil {
-		return File{}, err
-	}
-
-	<-done
-	return result, nil
-}
-
-func listFiles(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address) ([]File, error) {
-	results := []File{}
-
-	err, done := client.SubmitReadTransactionWait(func(client *ethclient.Client) (err error, retry bool) {
-		err = nil
-		retry = false
-
-		fileshareContract, err := ethBind.NewFileShareContract(fileshareContractAddr, client)
-=======
 		files, err := files.ListFiles(client, fileshareAddr, sharerAddress)
->>>>>>> 493b0f3cf789ddbf8f693d4ffbfc1be1b6fa0c0c
+
 		if err != nil {
 			c.Error(err)
 			c.JSON(400, gin.H{
