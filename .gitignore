@@ -1,5 +1,9 @@
 reated by https://www.gitignore.io/api/go,visualstudiocode
 
+### Solidity ###
+# Solidity generated go bindings
+blockchainEth/ethBind
+
 ### Go ###
 # Binaries for programs and plugins
 *.exe

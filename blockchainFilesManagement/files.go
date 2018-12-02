@@ -1,23 +1,29 @@
-package files
+package blockchainFilesManagement
 
 import (
 	"crypto/ecdsa"
 	"math/big"
 
-	"github.com/alex-d-tc/ethershare/eth"
-	"github.com/alex-d-tc/ethershare/eth/ethBind"
+	"github.com/alex-d-tc/bchain-routing/eth"
+	"github.com/alex-d-tc/ethershare/blockchainEth"
+	"github.com/alex-d-tc/ethershare/blockchainEth/ethBind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 type File struct {
-	Hash        string
+	Hash string
+
 	Description string
-	Price       *big.Int
+
+	Name      string
+	Extension string
+
+	Price *big.Int
 }
 
-func PublishFile(key *ecdsa.PrivateKey, client *eth.ThreadsafeClient, fileshareContractAddr common.Address, file File) error {
+func PublishFile(key *ecdsa.PrivateKey, client *blockchainEth.ThreadsafeClient, fileshareContractAddr common.Address, file File) error {
 
 	err := client.SubmitTransaction(func(client *ethclient.Client) (err error, retry bool, tran *types.Transaction) {
 
@@ -35,7 +41,7 @@ func PublishFile(key *ecdsa.PrivateKey, client *eth.ThreadsafeClient, fileshareC
 			return
 		}
 
-		tran, err = fileshareContract.PublishFile(auth, file.Hash, file.Price, file.Description)
+		tran, err = fileshareContract.PublishFile(auth, file.Hash, file.Price, file.Description, file.Name, file.Extension)
 		if err != nil {
 			return
 		}
@@ -50,7 +56,7 @@ func PublishFile(key *ecdsa.PrivateKey, client *eth.ThreadsafeClient, fileshareC
 	return nil
 }
 
-func GetFile(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address, fileID *big.Int) (File, error) {
+func GetFile(client *blockchainEth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address, fileID *big.Int) (File, error) {
 
 	result := File{}
 
@@ -85,7 +91,7 @@ func GetFile(client *eth.ThreadsafeClient, fileshareContractAddr common.Address,
 	return result, nil
 }
 
-func ListFiles(client *eth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address) ([]File, error) {
+func ListFiles(client *blockchainEth.ThreadsafeClient, fileshareContractAddr common.Address, sharer common.Address) ([]File, error) {
 	results := []File{}
 
 	err, done := client.SubmitReadTransactionWait(func(client *ethclient.Client) (err error, retry bool) {
