@@ -33,17 +33,7 @@ namespace CryptoFrontendFileEther
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            /*
-            System.IO.StreamReader file =
-                new System.IO.StreamReader(@"C:\Users\Artyomska\Source\Repos\CryptoFrontendFileEther\CryptoFrontendFileEther\HashInfo.txt");
-            hashLabel.Text = file.ReadLine();
-            privateKey = file.ReadLine();
-            file.Close();
-            */
 
-            MemoryStream encrypted = Encrypt();
-            MemoryStream decrypted = FileDecrypt(encrypted);
-            Console.WriteLine("Decrypted: ", bytesToString(decrypted.GetBuffer()));
         }
 
         // The port number for the remote device.  
@@ -235,6 +225,7 @@ namespace CryptoFrontendFileEther
             return new byte[32];
         }
 
+<<<<<<< HEAD
         private void test()
         {
 
@@ -292,6 +283,8 @@ namespace CryptoFrontendFileEther
             return fsOut;
         }
 
+=======
+>>>>>>> 34afc086f42d41821d2532ca363b7f8335666da1
         private MemoryStream FileDecrypt(MemoryStream memStream)
         {
             int keySize = 256;
@@ -304,7 +297,10 @@ namespace CryptoFrontendFileEther
             MemoryStream fsOut = new MemoryStream();
 
             memStream.Seek(0, SeekOrigin.Begin);
+<<<<<<< HEAD
             fsOut.Seek(0, SeekOrigin.Begin);
+=======
+>>>>>>> 34afc086f42d41821d2532ca363b7f8335666da1
 
             using (RijndaelManaged AES = new RijndaelManaged())
             {
