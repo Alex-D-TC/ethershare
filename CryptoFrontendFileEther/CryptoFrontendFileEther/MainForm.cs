@@ -33,11 +33,17 @@ namespace CryptoFrontendFileEther
 
         private void MainForm_Load(object sender, EventArgs e)
         {
+            /*
             System.IO.StreamReader file =
                 new System.IO.StreamReader(@"C:\Users\Artyomska\Source\Repos\CryptoFrontendFileEther\CryptoFrontendFileEther\HashInfo.txt");
             hashLabel.Text = file.ReadLine();
             privateKey = file.ReadLine();
             file.Close();
+            */
+
+            MemoryStream encrypted = Encrypt();
+            MemoryStream decrypted = FileDecrypt(encrypted);
+            Console.WriteLine("Decrypted: ", bytesToString(decrypted.GetBuffer()));
         }
 
         // The port number for the remote device.  
@@ -72,8 +78,8 @@ namespace CryptoFrontendFileEther
                 connectDone.WaitOne();
 
                 // Send test data to the remote device.  
-                Send(client, "This is a test<EOF>");
-                sendDone.WaitOne();
+                //Send(client, "This is a test<EOF>");
+                //sendDone.WaitOne();
 
                 // Receive the response from the remote device.  
                 Receive(client);
@@ -161,7 +167,7 @@ namespace CryptoFrontendFileEther
                     if (state.sb.Length > 1)
                     {
                         MemoryStream result = new MainForm().FileDecrypt(state.sb);
-                        response = state.responseStringBytes.ToString();
+                        response = bytesToString(result.GetBuffer());
                         Console.WriteLine(result);
                     }
                     // Signal that all bytes have been received.  
@@ -172,6 +178,26 @@ namespace CryptoFrontendFileEther
             {
                 Console.WriteLine(e.ToString());
             }
+        }
+
+        private static string bytesToString(byte[] input)
+        {
+            StringBuilder builder = new StringBuilder();
+
+            builder.Append("[ ");
+
+            for(int i = 0; i < input.Length; ++i)
+            {
+                builder.Append(input[i]);
+                if(i != input.Length - 1)
+                {
+                    builder.Append(", ");
+                }
+            }
+
+            builder.Append(" ]");
+
+            return builder.ToString();
         }
 
         private static void Send(Socket client, String data)
@@ -209,34 +235,90 @@ namespace CryptoFrontendFileEther
             return new byte[32];
         }
 
-        private MemoryStream FileDecrypt(MemoryStream memStream)
+        private void test()
         {
+
+        }
+
+        private MemoryStream Encrypt()
+        {
+            byte[] toEncrypt = new byte[] { 1, 2, 3, 4, 5, 6 };
+
+            int keySize = 256;
+            int blockSize = 128;
+
             byte[] passwordBytes = generateRandomBytes();
-            byte[] salt = new byte[32];
+            byte[] ivBytes = new byte[blockSize / 8];
 
-            RijndaelManaged AES = new RijndaelManaged();
-            AES.KeySize = 256;
-            AES.BlockSize = 128;
-            var key = new Rfc2898DeriveBytes(passwordBytes, salt, 50000);
-            AES.Key = key.GetBytes(AES.KeySize / 8);
-            AES.IV = key.GetBytes(AES.BlockSize / 8);
-            AES.Padding = PaddingMode.PKCS7;
-            AES.Mode = CipherMode.CFB;
-
-            CryptoStream cs = new CryptoStream(memStream, AES.CreateDecryptor(), CryptoStreamMode.Read);
-
+            Buffer.BlockCopy(passwordBytes, 0, ivBytes, 0, ivBytes.Length);
             MemoryStream fsOut = new MemoryStream();
 
-            int read;
-            byte[] buffer = new byte[1024];
+            using (RijndaelManaged AES = new RijndaelManaged())
+            {
+                AES.BlockSize = blockSize;
+                AES.KeySize = keySize;
+                AES.Mode = CipherMode.CFB;
+                //AES.FeedbackSize = 8;
+                AES.Padding = PaddingMode.None;
+
+                AES.Key = passwordBytes;
+                AES.IV = ivBytes;
+
+                using (var encryptor = AES.CreateEncryptor())
+                using (var cs = new CryptoStream(new MemoryStream(toEncrypt, 0, toEncrypt.Length), encryptor, CryptoStreamMode.Read))
+                {
+                    cs.CopyTo(fsOut);
+                }
+            }
+
+            return fsOut;
+        }
+
+        private MemoryStream FileDecrypt(MemoryStream memStream)
+        {
+            int keySize = 256;
+            int blockSize = 128;
+
+            byte[] passwordBytes = generateRandomBytes();
+            byte[] ivBytes = new byte[blockSize / 8];
+
+            Buffer.BlockCopy(passwordBytes, 0, ivBytes, 0, ivBytes.Length);
+            MemoryStream fsOut = new MemoryStream();
+
+            using (RijndaelManaged AES = new RijndaelManaged())
+            {
+                AES.BlockSize = blockSize;
+                AES.KeySize = keySize;
+                AES.Mode = CipherMode.CFB;
+                //AES.FeedbackSize = 8;
+                AES.Padding = PaddingMode.None;
+
+                AES.Key = passwordBytes;
+                AES.IV = ivBytes;
+
+                using (var decryptor = AES.CreateDecryptor())
+                using (var cs = new CryptoStream(memStream, decryptor, CryptoStreamMode.Read))
+                {
+                    cs.CopyTo(fsOut);
+                }
+            }
+
+            /*
+            RijndaelManaged AES = new RijndaelManaged();
+            AES.KeySize = keySize;
+            AES.BlockSize = blockSize;
+            AES.Key = passwordBytes;
+            AES.IV = ivBytes;
+            AES.Padding = PaddingMode.None;
+            AES.Mode = CipherMode.CFB;
+            AES.FeedbackSize = 8;
+
+            CryptoStream cs = new CryptoStream(memStream, AES.CreateDecryptor(), CryptoStreamMode.Read);
+            MemoryStream fsOut = new MemoryStream();
 
             try
             {
-                while ((read = cs.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    Application.DoEvents();
-                    fsOut.Write(buffer, 0, read);
-                }
+                cs.CopyTo(fsOut);
             }
             catch (CryptographicException ex_CryptographicException)
             {
@@ -246,7 +328,7 @@ namespace CryptoFrontendFileEther
             {
                 Console.WriteLine("Error: " + ex.Message);
             }
-
+            
             try
             {
                 cs.Close();
@@ -255,6 +337,7 @@ namespace CryptoFrontendFileEther
             {
                 Console.WriteLine("Error by closing streams: " + ex.Message);
             }
+            */
 
             return fsOut;
         }

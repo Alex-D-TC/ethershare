@@ -10,7 +10,6 @@ import (
 	"io"
 	"math/rand"
 	"net"
-	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -96,7 +95,6 @@ func encryptFileStreamAESCFB256(key []byte, chunkSize uint32, dst io.Writer, src
 	encrypter := cipher.NewCFBEncrypter(block, iv)
 
 	chunk := make([]byte, chunkSize)
-	encryptedChunk := make([]byte, chunkSize)
 
 	for {
 		readCount, err := src.Read(chunk)
@@ -114,11 +112,22 @@ func encryptFileStreamAESCFB256(key []byte, chunkSize uint32, dst io.Writer, src
 			chunk[i] = 0
 		}
 
+		/*
+			chunk, err = pkcs7Pad(chunk, block.BlockSize())
+			if err != nil {
+				return err
+			}
+		*/
+
+		encryptedChunk := make([]byte, len(chunk))
+
 		encrypter.XORKeyStream(encryptedChunk, chunk)
 		_, err = dst.Write(encryptedChunk)
 		if err != nil {
 			return err
 		}
+
+		//fmt.Println(encryptedChunk)
 	}
 
 	return nil
@@ -165,13 +174,24 @@ func requestAndDecrypt() {
 	fmt.Println(result)
 }
 
-func main() {
-	arguments := os.Args
-	if len(arguments) >= 1 {
-		requestAndDecrypt()
-		return
+// pkcs7Pad right-pads the given byte slice with 1 to n bytes, where
+// n is the block size. The size of the result is x times n, where x
+// is at least 1.
+func pkcs7Pad(b []byte, blocksize int) ([]byte, error) {
+	if blocksize <= 0 {
+		return nil, errors.New("Invalid block size")
 	}
+	if b == nil || len(b) == 0 {
+		return nil, errors.New("Invalid PKCS7 data")
+	}
+	n := blocksize - (len(b) % blocksize)
+	pb := make([]byte, len(b)+n)
+	copy(pb, b)
+	copy(pb[len(b):], bytes.Repeat([]byte{byte(n)}, n))
+	return pb, nil
+}
 
+func main() {
 	PORT := ":8080"
 	l, err := net.Listen("tcp4", PORT)
 	if err != nil {
