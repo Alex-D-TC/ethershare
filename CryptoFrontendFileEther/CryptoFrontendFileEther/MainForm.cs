@@ -33,17 +33,7 @@ namespace CryptoFrontendFileEther
 
         private void MainForm_Load(object sender, EventArgs e)
         {
-            /*
-            System.IO.StreamReader file =
-                new System.IO.StreamReader(@"C:\Users\Artyomska\Source\Repos\CryptoFrontendFileEther\CryptoFrontendFileEther\HashInfo.txt");
-            hashLabel.Text = file.ReadLine();
-            privateKey = file.ReadLine();
-            file.Close();
-            */
 
-            MemoryStream encrypted = Encrypt();
-            MemoryStream decrypted = FileDecrypt(encrypted);
-            Console.WriteLine("Decrypted: ", bytesToString(decrypted.GetBuffer()));
         }
 
         // The port number for the remote device.  
@@ -235,45 +225,6 @@ namespace CryptoFrontendFileEther
             return new byte[32];
         }
 
-        private void test()
-        {
-
-        }
-
-        private MemoryStream Encrypt()
-        {
-            byte[] toEncrypt = new byte[] { 1, 2, 3, 4, 5, 6 };
-
-            int keySize = 256;
-            int blockSize = 128;
-
-            byte[] passwordBytes = generateRandomBytes();
-            byte[] ivBytes = new byte[blockSize / 8];
-
-            Buffer.BlockCopy(passwordBytes, 0, ivBytes, 0, ivBytes.Length);
-            MemoryStream fsOut = new MemoryStream();
-
-            using (RijndaelManaged AES = new RijndaelManaged())
-            {
-                AES.BlockSize = blockSize;
-                AES.KeySize = keySize;
-                AES.Mode = CipherMode.CFB;
-                //AES.FeedbackSize = 8;
-                AES.Padding = PaddingMode.None;
-
-                AES.Key = passwordBytes;
-                AES.IV = ivBytes;
-
-                using (var encryptor = AES.CreateEncryptor())
-                using (var cs = new CryptoStream(new MemoryStream(toEncrypt, 0, toEncrypt.Length), encryptor, CryptoStreamMode.Read))
-                {
-                    cs.CopyTo(fsOut);
-                }
-            }
-
-            return fsOut;
-        }
-
         private MemoryStream FileDecrypt(MemoryStream memStream)
         {
             int keySize = 256;
@@ -285,12 +236,14 @@ namespace CryptoFrontendFileEther
             Buffer.BlockCopy(passwordBytes, 0, ivBytes, 0, ivBytes.Length);
             MemoryStream fsOut = new MemoryStream();
 
+            memStream.Seek(0, SeekOrigin.Begin);
+
             using (RijndaelManaged AES = new RijndaelManaged())
             {
                 AES.BlockSize = blockSize;
                 AES.KeySize = keySize;
                 AES.Mode = CipherMode.CFB;
-                //AES.FeedbackSize = 8;
+                AES.FeedbackSize = 8;
                 AES.Padding = PaddingMode.None;
 
                 AES.Key = passwordBytes;
