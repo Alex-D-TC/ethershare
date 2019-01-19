@@ -1,53 +1,22 @@
 package main
 
 import (
+	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
+	"io"
+	"math/rand"
+	"net"
+	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/gin-gonic/gin"
 
-	"github.com/alex-d-tc/ethershare/blockchainEth"
-	"github.com/alex-d-tc/ethershare/blockchainEth/ethBind"
-	"github.com/alex-d-tc/ethershare/blockchainFilesManagement"
 	"github.com/alex-d-tc/ethershare/util"
 )
-
-func serverExample(client *blockchainEth.ThreadsafeClient, fileshareAddr common.Address) {
-
-	r := gin.Default()
-
-	r.GET("/echo", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "echo!",
-		})
-	})
-
-	r.GET("/:sharer/files", func(c *gin.Context) {
-		sharerHex := c.Param("sharer")
-		sharerAddress := common.HexToAddress(sharerHex)
-
-		files, err := blockchainFilesManagement.ListFiles(client, fileshareAddr, sharerAddress)
-
-		if err != nil {
-			c.Error(err)
-			c.JSON(400, gin.H{
-				"error": err.Error(),
-			})
-		} else {
-			c.JSON(200, gin.H{
-				"files": files,
-			})
-		}
-	})
-
-	err := r.Run(":8080")
-	if err != nil {
-		panic(err)
-	}
-}
 
 func prepareConfig() (key *ecdsa.PrivateKey, clientURL string, tokenAddr common.Address, fileshareAddr common.Address, err error) {
 
@@ -67,8 +36,7 @@ func prepareConfig() (key *ecdsa.PrivateKey, clientURL string, tokenAddr common.
 	return
 }
 
-func main() {
-
+/*
 	key, clientURL, tokenAddr, _, err := prepareConfig()
 	if err != nil {
 		panic(err)
@@ -112,4 +80,113 @@ func main() {
 	}
 
 	<-done
+*/
+
+func encryptFileStreamAESCFB256(key []byte, chunkSize uint32, dst io.Writer, src io.Reader) error {
+	if len(key) != 32 {
+		return errors.New("The key is not of 32 bytes")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return err
+	}
+
+	iv := key[0:16]
+	encrypter := cipher.NewCFBEncrypter(block, iv)
+
+	chunk := make([]byte, chunkSize)
+	encryptedChunk := make([]byte, chunkSize)
+
+	for {
+		readCount, err := src.Read(chunk)
+		if err != nil {
+			return err
+		}
+
+		// If there is nothing more to encrypt, stop
+		if readCount == 0 {
+			break
+		}
+
+		// If we read less than chunkSize, zero the rest
+		for i := uint32(readCount); i < chunkSize; i++ {
+			chunk[i] = 0
+		}
+
+		encrypter.XORKeyStream(encryptedChunk, chunk)
+		_, err = dst.Write(encryptedChunk)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func handleConnection(c net.Conn) {
+
+	helloWorld := "Hello World!"
+	key := make([]byte, 32)
+
+	encryptFileStreamAESCFB256(key, 1024, c, bytes.NewReader([]byte(helloWorld)))
+	c.Close()
+}
+
+func requestAndDecrypt() {
+
+	key := make([]byte, 32)
+	iv := key[0:16]
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err)
+	}
+
+	conn, err := net.Dial("tcp4", "localhost:8080")
+	if err != nil {
+		panic(err)
+	}
+
+	src := make([]byte, 1024)
+
+	_, err = conn.Read(src)
+	if err != nil {
+		panic(err)
+	}
+
+	conn.Close()
+
+	result := make([]byte, 1024)
+
+	decrypter := cipher.NewCFBDecrypter(block, iv)
+	decrypter.XORKeyStream(result, src)
+
+	fmt.Println(result)
+}
+
+func main() {
+	arguments := os.Args
+	if len(arguments) >= 1 {
+		requestAndDecrypt()
+		return
+	}
+
+	PORT := ":8080"
+	l, err := net.Listen("tcp4", PORT)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer l.Close()
+	rand.Seed(time.Now().Unix())
+
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		go handleConnection(c)
+	}
 }
