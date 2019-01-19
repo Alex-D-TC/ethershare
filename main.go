@@ -81,7 +81,14 @@ func prepareConfig() (key *ecdsa.PrivateKey, clientURL string, tokenAddr common.
 	<-done
 */
 
-func encryptFileStreamAESCFB256(key []byte, chunkSize uint32, dst io.Writer, src io.Reader) error {
+func generateRandomBytes(byteCount uint32) ([]byte, error) {
+	arr := make([]byte, byteCount)
+	_, err := rand.Read(arr)
+
+	return arr, err
+}
+
+func encryptFileStreamAESCFB256(key []byte, ivSize uint32, chunkSize uint32, dst io.Writer, src io.Reader) error {
 	if len(key) != 32 {
 		return errors.New("The key is not of 32 bytes")
 	}
@@ -91,13 +98,18 @@ func encryptFileStreamAESCFB256(key []byte, chunkSize uint32, dst io.Writer, src
 		return err
 	}
 
-	iv := key[0:16]
 	encrypter := cipher.NewCFBEncrypter(block, iv)
 
 	chunk := make([]byte, chunkSize)
 
 	for {
 		readCount, err := src.Read(chunk)
+		if err != nil {
+			return err
+		}
+
+		// Generate a random IV
+		iv, err := generateRandomBytes(ivSize)
 		if err != nil {
 			return err
 		}
@@ -112,22 +124,21 @@ func encryptFileStreamAESCFB256(key []byte, chunkSize uint32, dst io.Writer, src
 			chunk[i] = 0
 		}
 
-		/*
-			chunk, err = pkcs7Pad(chunk, block.BlockSize())
-			if err != nil {
-				return err
-			}
-		*/
-
 		encryptedChunk := make([]byte, len(chunk))
 
 		encrypter.XORKeyStream(encryptedChunk, chunk)
+
+		fmt.Println(encryptedChunk)
+		fmt.Println(iv)
+
+		// Append IV to chunk
+		encryptedChunk = append(encryptedChunk, iv...)
+
 		_, err = dst.Write(encryptedChunk)
 		if err != nil {
 			return err
 		}
 
-		//fmt.Println(encryptedChunk)
 	}
 
 	return nil
@@ -135,60 +146,16 @@ func encryptFileStreamAESCFB256(key []byte, chunkSize uint32, dst io.Writer, src
 
 func handleConnection(c net.Conn) {
 
+	// Negotiate key, iv size and chunk size
 	helloWorld := "Hello World!"
 	key := make([]byte, 32)
 
-	encryptFileStreamAESCFB256(key, 1024, c, bytes.NewReader([]byte(helloWorld)))
+	chunkSize := uint32(64)
+	ivSize := uint32(16)
+
+	// Stream the encrypted chunks
+	encryptFileStreamAESCFB256(key, ivSize, chunkSize, c, bytes.NewReader([]byte(helloWorld)))
 	c.Close()
-}
-
-func requestAndDecrypt() {
-
-	key := make([]byte, 32)
-	iv := key[0:16]
-
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err)
-	}
-
-	conn, err := net.Dial("tcp4", "localhost:8080")
-	if err != nil {
-		panic(err)
-	}
-
-	src := make([]byte, 1024)
-
-	_, err = conn.Read(src)
-	if err != nil {
-		panic(err)
-	}
-
-	conn.Close()
-
-	result := make([]byte, 1024)
-
-	decrypter := cipher.NewCFBDecrypter(block, iv)
-	decrypter.XORKeyStream(result, src)
-
-	fmt.Println(result)
-}
-
-// pkcs7Pad right-pads the given byte slice with 1 to n bytes, where
-// n is the block size. The size of the result is x times n, where x
-// is at least 1.
-func pkcs7Pad(b []byte, blocksize int) ([]byte, error) {
-	if blocksize <= 0 {
-		return nil, errors.New("Invalid block size")
-	}
-	if b == nil || len(b) == 0 {
-		return nil, errors.New("Invalid PKCS7 data")
-	}
-	n := blocksize - (len(b) % blocksize)
-	pb := make([]byte, len(b)+n)
-	copy(pb, b)
-	copy(pb[len(b):], bytes.Repeat([]byte{byte(n)}, n))
-	return pb, nil
 }
 
 func main() {

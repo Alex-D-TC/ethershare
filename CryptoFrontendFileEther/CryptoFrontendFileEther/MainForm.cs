@@ -242,7 +242,7 @@ namespace CryptoFrontendFileEther
 
         private MemoryStream Encrypt()
         {
-            byte[] toEncrypt = new byte[] { 1, 2, 3, 4, 5, 6 };
+            byte[] toEncrypt = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
             int keySize = 256;
             int blockSize = 128;
@@ -258,19 +258,37 @@ namespace CryptoFrontendFileEther
                 AES.BlockSize = blockSize;
                 AES.KeySize = keySize;
                 AES.Mode = CipherMode.CFB;
-                //AES.FeedbackSize = 8;
+                AES.FeedbackSize = 8;
                 AES.Padding = PaddingMode.None;
 
                 AES.Key = passwordBytes;
                 AES.IV = ivBytes;
 
-                using (var encryptor = AES.CreateEncryptor())
-                using (var cs = new CryptoStream(new MemoryStream(toEncrypt, 0, toEncrypt.Length), encryptor, CryptoStreamMode.Read))
-                {
-                    cs.CopyTo(fsOut);
-                }
-            }
+                //var plainStream = new MemoryStream(toEncrypt, 0, toEncrypt.Length);
 
+                // Create a decryptor to perform the stream transform.
+                ICryptoTransform encryptor = AES.CreateEncryptor(AES.Key, AES.IV);
+
+                // Create the streams used for encryption. 
+                using (MemoryStream msEncrypt = new MemoryStream())
+                {
+                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    {
+                        using (StreamWriter swEncrypt = new StreamWriter(csEncrypt))
+                        {
+
+                            //Write all data to the stream.
+                            swEncrypt.Write(toEncrypt);
+                        }
+
+                        byte[] result = msEncrypt.ToArray();
+
+                        fsOut.Write(result, 0, result.Length);
+                    }
+                }
+
+            }
+            
             return fsOut;
         }
 
@@ -285,18 +303,21 @@ namespace CryptoFrontendFileEther
             Buffer.BlockCopy(passwordBytes, 0, ivBytes, 0, ivBytes.Length);
             MemoryStream fsOut = new MemoryStream();
 
+            memStream.Seek(0, SeekOrigin.Begin);
+            fsOut.Seek(0, SeekOrigin.Begin);
+
             using (RijndaelManaged AES = new RijndaelManaged())
             {
                 AES.BlockSize = blockSize;
                 AES.KeySize = keySize;
                 AES.Mode = CipherMode.CFB;
-                //AES.FeedbackSize = 8;
+                AES.FeedbackSize = 8;
                 AES.Padding = PaddingMode.None;
 
                 AES.Key = passwordBytes;
                 AES.IV = ivBytes;
 
-                using (var decryptor = AES.CreateDecryptor())
+                using (var decryptor = AES.CreateDecryptor(AES.Key, AES.IV))
                 using (var cs = new CryptoStream(memStream, decryptor, CryptoStreamMode.Read))
                 {
                     cs.CopyTo(fsOut);
