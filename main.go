@@ -88,17 +88,15 @@ func generateRandomBytes(byteCount uint32) ([]byte, error) {
 	return arr, err
 }
 
-func encryptFileStreamAESCFB256(key []byte, ivSize uint32, chunkSize uint32, dst io.Writer, src io.Reader) error {
-	if len(key) != 32 {
-		return errors.New("The key is not of 32 bytes")
+func encryptFileStreamAESCFB128(key []byte, ivSize uint32, chunkSize uint32, dst io.Writer, src io.Reader) error {
+	if len(key) != 16 {
+		return errors.New("The key is not of 16 bytes")
 	}
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return err
 	}
-
-	encrypter := cipher.NewCFBEncrypter(block, iv)
 
 	chunk := make([]byte, chunkSize)
 
@@ -113,6 +111,8 @@ func encryptFileStreamAESCFB256(key []byte, ivSize uint32, chunkSize uint32, dst
 		if err != nil {
 			return err
 		}
+
+		encrypter := cipher.NewCFBEncrypter(block, iv)
 
 		// If there is nothing more to encrypt, stop
 		if readCount == 0 {
@@ -148,13 +148,13 @@ func handleConnection(c net.Conn) {
 
 	// Negotiate key, iv size and chunk size
 	helloWorld := "Hello World!"
-	key := make([]byte, 32)
+	key := make([]byte, 16)
 
 	chunkSize := uint32(64)
 	ivSize := uint32(16)
 
 	// Stream the encrypted chunks
-	encryptFileStreamAESCFB256(key, ivSize, chunkSize, c, bytes.NewReader([]byte(helloWorld)))
+	encryptFileStreamAESCFB128(key, ivSize, chunkSize, c, bytes.NewReader([]byte(helloWorld)))
 	c.Close()
 }
 

@@ -5,7 +5,7 @@ import java.util.*;
 public class TcpClient {
 
     public final static int SOCKET_PORT = 8080;      // you may change this
-    public final static String SERVER = "192.168.43.173";  // localhost
+    public final static String SERVER = "127.0.0.1";  // localhost
     public final static String FILE_TO_RECEIVED = "d:/curs04.pdf";  // you may change this, I give a
     // different name because i don't want to
     // overwrite the one used by server...
@@ -18,8 +18,8 @@ public class TcpClient {
         byte[] iv = Arrays.copyOfRange(chunkWithIV, chunkWithIV.length-ivSize, chunkWithIV.length);
         byte[] chunk = Arrays.copyOfRange(chunkWithIV, 0, chunkWithIV.length-ivSize);
 
-        System.out.println(prettyPrintByteArray(chunk));
-        System.out.println(prettyPrintByteArray(iv));
+        //System.out.println(prettyPrintByteArray(chunk));
+        //System.out.println(prettyPrintByteArray(iv));
 
         return TcpClientDecrypt.decrypt(key, iv, chunk);
         //return TcpClientDecrypt.decrypt(key, new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, chunkWithIV);
@@ -44,7 +44,7 @@ public class TcpClient {
             int ivSize = 16;
             int chunkSize = 64;
 
-            byte[] key = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            byte[] key = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
             // receive file
             byte [] chunk  = new byte [chunkSize + ivSize];
@@ -79,7 +79,7 @@ public class TcpClient {
 
         for(int i = 0; i < bytes.length; ++i) {
             if (bytes[i] < 0) {
-                int nofin = bytes[i] + 255;
+                int nofin = bytes[i] + 256;
                 joiner.add(Integer.toString(nofin));
             }
             else {
