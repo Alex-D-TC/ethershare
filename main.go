@@ -5,6 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -128,9 +129,6 @@ func encryptFileStreamAESCFB128(key []byte, ivSize uint32, chunkSize uint32, dst
 
 		encrypter.XORKeyStream(encryptedChunk, chunk)
 
-		fmt.Println(encryptedChunk)
-		fmt.Println(iv)
-
 		// Append IV to chunk
 		encryptedChunk = append(encryptedChunk, iv...)
 
@@ -150,8 +148,42 @@ func handleConnection(c net.Conn) {
 	helloWorld := "Hello World!"
 	key := make([]byte, 16)
 
+	// Get key as 128 bit byte array
+	_, err := c.Read(key)
+	if err != nil {
+		panic(err)
+	}
+
+	// Send back the chunk and iv size
 	chunkSize := uint32(64)
 	ivSize := uint32(16)
+
+	chunkSizeRawBuf := new(bytes.Buffer)
+	ivSizeRawBuf := new(bytes.Buffer)
+
+	// Serialize uint32 to [4]byte
+	err = binary.Write(chunkSizeRawBuf, binary.LittleEndian, chunkSize)
+	if err != nil {
+		panic(err)
+	}
+
+	// Send the serialized bytes
+	_, err = c.Write(chunkSizeRawBuf.Bytes()[0:4])
+	if err != nil {
+		panic(err)
+	}
+
+	// Serialize uint32 to [4]byte
+	err = binary.Write(ivSizeRawBuf, binary.LittleEndian, ivSize)
+	if err != nil {
+		panic(err)
+	}
+
+	// Send the serialized bytes
+	_, err = c.Write(ivSizeRawBuf.Bytes()[0:4])
+	if err != nil {
+		panic(err)
+	}
 
 	// Stream the encrypted chunks
 	encryptFileStreamAESCFB128(key, ivSize, chunkSize, c, bytes.NewReader([]byte(helloWorld)))

@@ -1,5 +1,9 @@
 import java.io.*;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.*;
 
 public class TcpClient {
@@ -22,10 +26,9 @@ public class TcpClient {
         //System.out.println(prettyPrintByteArray(iv));
 
         return TcpClientDecrypt.decrypt(key, iv, chunk);
-        //return TcpClientDecrypt.decrypt(key, new byte[]{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, chunkWithIV);
     }
 
-    private byte[] requestPDF(String server, int port) throws IOException {
+    private byte[] requestPDF(String server, int port) throws IOException, NoSuchAlgorithmException {
 
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         Socket sock = null;
@@ -34,30 +37,35 @@ public class TcpClient {
             sock = new Socket(server, port);
             System.out.println("Connecting...");
 
-//            OutputStream sockOutput = sock.getOutputStream();
-//
-//            byte[] b = new byte[32];
-//            new Random().nextBytes(b);
-//
-//            sockOutput.write(b, 0, b.length);
+            InputStream is = sock.getInputStream();
+            OutputStream out = sock.getOutputStream();
 
-            int ivSize = 16;
-            int chunkSize = 64;
+            // Generate a random key
+            // Send the key value
+            byte[] key = new byte[16];
 
-            byte[] key = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            SecureRandom.getInstanceStrong().nextBytes(key);
+
+            out.write(key);
+
+            byte[] uint32Buff = new byte[4];
+
+            // Read the chunk size
+            is.read(uint32Buff);
+            int chunkSize = ByteBuffer.wrap(uint32Buff).order(ByteOrder.LITTLE_ENDIAN).getInt();
+
+            // Read the IV size
+            is.read(uint32Buff);
+            int ivSize = ByteBuffer.wrap(uint32Buff).order(ByteOrder.LITTLE_ENDIAN).getInt();
 
             // receive file
             byte [] chunk  = new byte [chunkSize + ivSize];
 
-            InputStream is = sock.getInputStream();
-
-            int bytesRead = 0;
-
-            while(bytesRead > -1) {
+            while(true) {
                 // Decrypt each chunk
-                bytesRead = is.read(chunk, 0, chunk.length);
+                int bytesRead = is.read(chunk, 0, chunk.length);
 
-                if(bytesRead == -1)
+                if(bytesRead <= -1)
                     break;
 
                 byte[] decrypted = decryptChunk(chunk, key, ivSize);
@@ -90,7 +98,7 @@ public class TcpClient {
         return joiner.toString();
     }
 
-    public static void main (String [] args ) throws IOException {
+    public static void main (String [] args ) throws IOException, NoSuchAlgorithmException {
         byte[] result = new TcpClient().requestPDF(SERVER, SOCKET_PORT);
 
         System.out.println(new TcpClient().prettyPrintByteArray(result));
