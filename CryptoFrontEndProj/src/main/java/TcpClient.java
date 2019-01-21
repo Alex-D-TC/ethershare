@@ -1,8 +1,10 @@
 import java.awt.*;
 import java.io.*;
+import java.math.BigInteger;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.*;
@@ -20,11 +22,18 @@ public class TcpClient {
 
     private byte[] decryptChunk(byte[] chunkWithIV, byte[] key, int ivSize) {
 
+        //System.out.println(prettyPrintByteArray(chunkWithIV));
+
         byte[] iv = Arrays.copyOfRange(chunkWithIV, chunkWithIV.length-ivSize, chunkWithIV.length);
         byte[] chunk = Arrays.copyOfRange(chunkWithIV, 0, chunkWithIV.length-ivSize);
 
-        //System.out.println(prettyPrintByteArray(chunk));
-        //System.out.println(prettyPrintByteArray(iv));
+        /*
+        System.out.println(chunk.length);
+        System.out.println(iv.length);
+
+        System.out.println(prettyPrintByteArray(chunk));
+        System.out.println(prettyPrintByteArray(iv));
+        */
 
         return TcpClientDecrypt.decrypt(key, iv, chunk);
     }
@@ -69,7 +78,18 @@ public class TcpClient {
                 if(bytesRead <= -1)
                     break;
 
-                byte[] decrypted = decryptChunk(chunk, key, ivSize);
+                byte[] decrypted;
+
+                if(bytesRead < chunkSize) {
+
+                    // Handle the case where the last chunk is not full
+                    byte[] subChunk = new byte[bytesRead];
+                    System.arraycopy(chunk, 0, subChunk, 0, bytesRead);
+
+                    decrypted = decryptChunk(subChunk, key, ivSize);
+                } else {
+                    decrypted = decryptChunk(chunk, key, ivSize);
+                }
 
                 output.write(decrypted);
             }
@@ -114,7 +134,5 @@ public class TcpClient {
     public static void main (String [] args ) throws IOException, NoSuchAlgorithmException {
         byte[] result = new TcpClient().requestPDF(SERVER, SOCKET_PORT);
         openPDF(result);
-
-        System.out.println(new TcpClient().prettyPrintByteArray(result));
     }
 }

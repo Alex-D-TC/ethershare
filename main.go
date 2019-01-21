@@ -5,12 +5,14 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
+	"crypto/md5"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"math/rand"
 	"net"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -120,14 +122,10 @@ func encryptFileStreamAESCFB128(key []byte, ivSize uint32, chunkSize uint32, dst
 			break
 		}
 
-		// If we read less than chunkSize, zero the rest
-		for i := uint32(readCount); i < chunkSize; i++ {
-			chunk[i] = 0
-		}
+		// Encrypt the received chunk
+		encryptedChunk := make([]byte, readCount)
 
-		encryptedChunk := make([]byte, len(chunk))
-
-		encrypter.XORKeyStream(encryptedChunk, chunk)
+		encrypter.XORKeyStream(encryptedChunk, chunk[0:readCount])
 
 		// Append IV to chunk
 		encryptedChunk = append(encryptedChunk, iv...)
@@ -142,16 +140,17 @@ func encryptFileStreamAESCFB128(key []byte, ivSize uint32, chunkSize uint32, dst
 	return nil
 }
 
-func handleConnection(c net.Conn) {
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
 
 	// Negotiate key, iv size and chunk size
-	helloWorld := "Hello World!"
 	key := make([]byte, 16)
 
 	// Get key as 128 bit byte array
-	_, err := c.Read(key)
+	_, err := conn.Read(key)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
 	// Send back the chunk and iv size
@@ -164,30 +163,63 @@ func handleConnection(c net.Conn) {
 	// Serialize uint32 to [4]byte
 	err = binary.Write(chunkSizeRawBuf, binary.LittleEndian, chunkSize)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
 	// Send the serialized bytes
-	_, err = c.Write(chunkSizeRawBuf.Bytes()[0:4])
+	_, err = conn.Write(chunkSizeRawBuf.Bytes()[0:4])
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
 	// Serialize uint32 to [4]byte
 	err = binary.Write(ivSizeRawBuf, binary.LittleEndian, ivSize)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
 	// Send the serialized bytes
-	_, err = c.Write(ivSizeRawBuf.Bytes()[0:4])
+	_, err = conn.Write(ivSizeRawBuf.Bytes()[0:4])
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return
 	}
 
+	// Get the PDF to send
+	// Hardcoded path for demonstration purposes
+	pdfPath := "D:/projects/go/src/github.com/alex-d-tc/ethershare/CryptoFrontendProj/AVL-Tree-Rotations.pdf"
+	file, err := os.Open(pdfPath)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+
+	//logMD5(pdfPath)
+
 	// Stream the encrypted chunks
-	encryptFileStreamAESCFB128(key, ivSize, chunkSize, c, bytes.NewReader([]byte(helloWorld)))
-	c.Close()
+	encryptFileStreamAESCFB128(key, ivSize, chunkSize, conn, file)
+}
+
+func logMD5(path string) {
+
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer file.Close()
+
+	hash := md5.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println("MD5 Hash of pdf file: ", hash.Sum(nil))
 }
 
 func main() {
