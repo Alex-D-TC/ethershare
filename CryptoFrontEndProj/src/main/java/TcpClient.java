@@ -1,3 +1,4 @@
+import java.awt.*;
 import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -10,7 +11,7 @@ public class TcpClient {
 
     public final static int SOCKET_PORT = 8080;      // you may change this
     public final static String SERVER = "127.0.0.1";  // localhost
-    public final static String FILE_TO_RECEIVED = "d:/curs04.pdf";  // you may change this, I give a
+    public final static String FILE_TO_RECEIVED = "sample.pdf";  // you may change this, I give a
     // different name because i don't want to
     // overwrite the one used by server...
 
@@ -98,8 +99,21 @@ public class TcpClient {
         return joiner.toString();
     }
 
+    public static void openPDF(byte[] byteFile) throws IOException {
+        // Write to file
+        File f = File.createTempFile("sample", ".pdf");
+        f.deleteOnExit();
+        FileOutputStream fos = new FileOutputStream(f);
+        fos.write(byteFile);
+        fos.close();
+
+        // Open the file
+        Desktop.getDesktop().open(f);
+    }
+
     public static void main (String [] args ) throws IOException, NoSuchAlgorithmException {
         byte[] result = new TcpClient().requestPDF(SERVER, SOCKET_PORT);
+        openPDF(result);
 
         System.out.println(new TcpClient().prettyPrintByteArray(result));
     }
