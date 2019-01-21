@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -190,7 +191,14 @@ func handleConnection(conn net.Conn) {
 
 	// Get the PDF to send
 	// Hardcoded path for demonstration purposes
-	pdfPath := "D:/projects/go/src/github.com/alex-d-tc/ethershare/CryptoFrontendProj/AVL-Tree-Rotations.pdf"
+	pdfPath, err := filepath.Abs("CryptoFrontendProj/AVL-Tree-Rotations.pdf")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println(pdfPath)
+
 	file, err := os.Open(pdfPath)
 	if err != nil {
 		fmt.Println(err)
